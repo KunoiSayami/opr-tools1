@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OPR tools
 // @namespace    https://opr.ingress.com/recon
-// @version      0.9.17
+// @version      0.9.18
 // @description  Added links to Intel and OSM and disabled autoscroll.
 // @author       1110101, tehstone, Hedger, Deep-thot, senfomat, pd1254, pieter.schutz, fotofreund0815, peter.gelsbo, stdssr
 // @match        https://opr.ingress.com/recon
@@ -301,26 +301,17 @@ opacity: 1;
             var lat_detected = transform_lat(pageData.lng,pageData.lat);
             var lng_detected = transform_lng(pageData.lng,pageData.lat);
             var bd_loc = wgs84tobd09(pageData.lng,pageData.lat);
+            var gcj02 = wgs84togcj02(pageData.lng);
 
             /**
              * China location fixed end
              */
 
-            function get_portal_info() {
-                var name = target.getElementsByTagName('a')[0].innerHTML;
-                var position = target.getElementsByTagName('a')[1].getAttribute("href");
-                // var description = target.getElementsByTagName('a')[2].get
-                name = /^\s*(.*)\s*$/.exec(name)[1];
-                position = /@(.*)$/.exec(position)[1];
-                return [name, position];
-            }
-            var portal_info = get_portal_info();
-            var gcj02 = wgs84togcj02(pageData.lng);
 
             // adding map buttons
             const mapButtons = [
                 "<a class='button btn btn-default' target='intel' href='https://www.ingress.com/intel?ll=" + pageData.lat + "," + pageData.lng + "&z=17'>Intel</a>",
-                "<a class='button btn btn-default' target='mapqq' href='http://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&name=" + portal_info[0] + "&addr=" + portal_info[1] + "&pointy=" + gcj02[1] + "&pointx=" + gcj02[0] + "&zoom=16'>Tencent map</a>",
+                "<a class='button btn btn-default' target='mapqq' href='http://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&addr=" + pageData.lat + "," + pageData.lng + "&pointy=" + gcj02[1] + "&pointx=" + gcj02[0] + "&zoom=16'>Tencent map</a>",
                 "<a class='button btn btn-default' target='osm' href='https://www.openstreetmap.org/?mlat=" + lat_detected + "&mlon=" + lng_detected + "&zoom=16'>OSM</a>",
                 "<a class='button btn btn-default' target='bing' href='https://bing.com/maps/default.aspx?cp=" + lat_detected + "~" + lng_detected + "&lvl=16&style=a'>bing</a>"
             ];
