@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OPR tools
 // @namespace    https://opr.ingress.com/recon
-// @version      0.9.18
+// @version      0.9.19
 // @description  Added links to Intel and OSM and disabled autoscroll.
 // @author       1110101, tehstone, Hedger, Deep-thot, senfomat, pd1254, pieter.schutz, fotofreund0815, peter.gelsbo, stdssr
 // @match        https://opr.ingress.com/recon
@@ -301,7 +301,7 @@ opacity: 1;
             var lat_detected = transform_lat(pageData.lng,pageData.lat);
             var lng_detected = transform_lng(pageData.lng,pageData.lat);
             var bd_loc = wgs84tobd09(pageData.lng,pageData.lat);
-            var gcj02 = wgs84togcj02(pageData.lng);
+            var gcj02 = wgs84togcj02(pageData.lng,pageData.lat);
 
             /**
              * China location fixed end
