@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         OPR tools
 // @namespace    https://opr.ingress.com/recon
-// @version      0.9.16
+// @version      0.9.17
 // @description  Added links to Intel and OSM and disabled autoscroll.
-// @author       1110101, tehstone, Hedger, Deep-thot, senfomat, pd1254, pieter.schutz, fotofreund0815, peter.gelsbo
+// @author       1110101, tehstone, Hedger, Deep-thot, senfomat, pd1254, pieter.schutz, fotofreund0815, peter.gelsbo, stdssr
 // @match        https://opr.ingress.com/recon
 // @grant        unsafeWindow
 // @downloadURL  https://gitlab.com/1110101/opr-tools/raw/master/opr-tools.user.js
@@ -207,30 +207,140 @@ opacity: 1;
 }
 `);
 
+            /**
+             * China location fixed begin
+             * transform_lat, transform_lng, out_of_china, wgs84togcj02, gcj02tobd09 function
+             * is From https://git.io/vQ6hK by: xdnain
+             */
+            const x_PI = 3.14159265358979324 * 3000.0 / 180.0;
+            const PI = 3.1415926535897932384626;
+            const a = 6378245.0;
+            const ee = 0.00669342162296594323;
+
+            //GCJ-02 to WGS84
+            function transform_lat(lng, lat) {
+                var lat1 = +lat;
+                var lng1 = +lng;
+                var ret = -100.0 + 2.0 * lng1 + 3.0 * lat1 + 0.2 * lat1 * lat1 + 0.1 * lng1 * lat1 + 0.2 * Math.sqrt(Math.abs(lng1));
+                ret += (20.0 * Math.sin(6.0 * lng1 * PI) + 20.0 * Math.sin(2.0 * lng1 * PI)) * 2.0 / 3.0;
+                ret += (20.0 * Math.sin(lat1 * PI) + 40.0 * Math.sin(lat1 / 3.0 * PI)) * 2.0 / 3.0;
+                ret += (160.0 * Math.sin(lat1 / 12.0 * PI) + 320 * Math.sin(lat1 * PI / 30.0)) * 2.0 / 3.0;
+                return ret;
+            }
+
+            function transform_lng(lng, lat) {
+                var lat1 = +lat;
+                var lng1 = +lng;
+                var ret = 300.0 + lng1 + 2.0 * lat1 + 0.1 * lng1 * lng1 + 0.1 * lng1 * lat1 + 0.1 * Math.sqrt(Math.abs(lng1));
+                ret += (20.0 * Math.sin(6.0 * lng1 * PI) + 20.0 * Math.sin(2.0 * lng1 * PI)) * 2.0 / 3.0;
+                ret += (20.0 * Math.sin(lng1 * PI) + 40.0 * Math.sin(lng1 / 3.0 * PI)) * 2.0 / 3.0;
+                ret += (150.0 * Math.sin(lng1 / 12.0 * PI) + 300.0 * Math.sin(lng1 / 30.0 * PI)) * 2.0 / 3.0;
+                return ret;
+            }
+
+            //check is location in China
+            function out_of_china(lng, lat) {
+                var lat1 = +lat;
+                var lng1 = +lng;
+                // 纬度3.86~53.55,经度73.66~135.05
+                return !(lng1 > 73.66 && lng1 < 135.05 && lat1 > 3.86 && lat1 < 53.55);
+            }
+
+            /**
+             * WGS84转GCj02
+             * @param lng
+             * @param lat
+             * @returns {*[]}
+             */
+            function wgs84togcj02(lng, lat) {
+                var lat1 = +lat;
+                var lng1 = +lng;
+                if (out_of_china(lng1, lat1)) {
+                    return [lng1, lat1];
+                } else {
+                    var dlat = transform_lat(lng1 - 105.0, lat1 - 35.0);
+                    var dlng = transform_lng(lng1 - 105.0, lat1 - 35.0);
+                    var radlat = lat1 / 180.0 * PI;
+                    var magic = Math.sin(radlat);
+                    magic = 1 - ee * magic * magic;
+                    var sqrtmagic = Math.sqrt(magic);
+                    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
+                    dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
+                    var mglat = lat1 + dlat;
+                    var mglng = lng1 + dlng;
+                    return [mglng, mglat];
+                }
+            }
+
+            /**
+             * 火星坐标系 (GCJ-02) 到百度坐标系 (BD-09) 的转换
+             * @param lng
+             * @param lat
+             * @returns {*[]}
+             */
+            function gcj02tobd09(lng, lat) {
+                var lat1 = +lat;
+                var lng1 = +lng;
+                var z = Math.sqrt(lng1 * lng1 + lat1 * lat1) + 0.00002 * Math.sin(lat1 * x_PI);
+                var theta = Math.atan2(lat1, lng1) + 0.000003 * Math.cos(lng1 * x_PI);
+                var bd_lng = z * Math.cos(theta) + 0.0065;
+                var bd_lat = z * Math.sin(theta) + 0.006;
+                return [bd_lng, bd_lat];
+            }
+
+            function wgs84tobd09(lng, lat){
+                var lat1 = +lat;
+                var lng1 = +lng;
+                if (out_of_china(lng1,lat1)){
+                    return [lng1,lat1];
+                } else 
+                    return gcj02tobd09(lng,lat);
+            }
+
+            var lat_detected = transform_lat(pageData.lng,pageData.lat);
+            var lng_detected = transform_lng(pageData.lng,pageData.lat);
+            var bd_loc = wgs84tobd09(pageData.lng,pageData.lat);
+
+            /**
+             * China location fixed end
+             */
+
+            function get_portal_info() {
+                var name = target.getElementsByTagName('a')[0].innerHTML;
+                var position = target.getElementsByTagName('a')[1].getAttribute("href");
+                // var description = target.getElementsByTagName('a')[2].get
+                name = /^\s*(.*)\s*$/.exec(name)[1];
+                position = /@(.*)$/.exec(position)[1];
+                return [name, position];
+            }
+            var portal_info = get_portal_info();
+            var gcj02 = wgs84togcj02(pageData.lng)
 
             // adding map buttons
             const mapButtons = [
                 "<a class='button btn btn-default' target='intel' href='https://www.ingress.com/intel?ll=" + pageData.lat + "," + pageData.lng + "&z=17'>Intel</a>",
-                "<a class='button btn btn-default' target='osm' href='https://www.openstreetmap.org/?mlat=" + pageData.lat + "&mlon=" + pageData.lng + "&zoom=16'>OSM</a>",
-                "<a class='button btn btn-default' target='bing' href='https://bing.com/maps/default.aspx?cp=" + pageData.lat + "~" + pageData.lng + "&lvl=16&style=a'>bing</a>"
+                "<a class='button btn btn-default' target='mapqq' href='http://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&name=" + portal_info[0] + "&addr=" + portal_info[1] + "&pointy=" + gcj02[1] + "&pointx=" + gcj02[0]; + "&zoom=16'>Tencent map</a>",
+                "<a class='button btn btn-default' target='osm' href='https://www.openstreetmap.org/?mlat=" + lat_detected + "&mlon=" + lng_detected + "&zoom=16'>OSM</a>",
+                "<a class='button btn btn-default' target='bing' href='https://bing.com/maps/default.aspx?cp=" + lat_detected + "~" + lng_detected + "&lvl=16&style=a'>bing</a>"
             ];
 
             // more map buttons in a dropdown menu
             const mapDropdown = [
-                "<li><a target='heremaps' href='https://wego.here.com/?map=" + pageData.lat + "," + pageData.lng + ",17,satellite'>HERE maps</a></li>",
-                "<li><a target='wikimapia' href='http://wikimapia.org/#lat=" + pageData.lat + "&lon=" + pageData.lng + "&z=16'>Wikimapia</a></li>",
-                "<li><a targeT='zoomearth' href='https://zoom.earth/#" + pageData.lat + "," + pageData.lng + ",18z,sat'>Zoom Earth</a></li>",
-
+                "<li><a target='heremaps' href='https://wego.here.com/?map=" + lat_detected + "," + lng_detected + ",17,satellite'>HERE maps</a></li>",
+                "<li><a target='wikimapia' href='http://wikimapia.org/#lat=" + lat_detected + "&lon=" + lng_detected + "&z=16'>Wikimapia</a></li>",
+                "<li><a targeT='zoomearth' href='https://zoom.earth/#" + lat_detected + "," + lng_detected + ",18z,sat'>Zoom Earth</a></li>",
+/*
                 "<li role='separator' class='divider'></li>",
 
                 // national maps
-                "<li><a target='swissgeo' href='http://map.geo.admin.ch/?swisssearch=" + pageData.lat + "," + pageData.lng + "'>CH - Swiss Geo Map</a></li>",
-                "<li><a target='kompass' href='http://maps.kompass.de/#lat=" + pageData.lat + "&lon=" + pageData.lng + "&z=17'>DE - Kompass.maps</a></li>",
-                "<li><a target='bayernatlas' href='https://geoportal.bayern.de/bayernatlas/index.html?X=" + pageData.lat + "&Y=" + pageData.lng + "&zoom=14&lang=de&bgLayer=luftbild&topic=ba&catalogNodes=122'>DE - BayernAtlas</a></li>",
-                "<li><a target='yandex' href='https://maps.yandex.ru/?text=" + pageData.lat + "," + pageData.lng + "'>RU - Yandex</a></li>",
-                "<li><a target='hitta' href='https://www.hitta.se/kartan!~" + pageData.lat + "," + pageData.lng + ",18z/tileLayer!l=1'>SE - Hitta.se</a></li>",
-                "<li><a target='eniro' href='https://kartor.eniro.se/?c=" + pageData.lat + "," + pageData.lng + "&z=17&l=nautical'>SE - Eniro Sjökort</a></li>",
-                "<li><a target='eniro' href='http://opr.pegel.dk/?17/" + pageData.lat + "/" + pageData.lng + "'>DK - SDFE Orthophotos</a></li>"
+                "<li><a target='swissgeo' href='http://map.geo.admin.ch/?swisssearch=" + lat_detected + "," + lng_detected + "'>CH - Swiss Geo Map</a></li>",
+                "<li><a target='kompass' href='http://maps.kompass.de/#lat=" + lat_detected + "&lon=" + lng_detected + "&z=17'>DE - Kompass.maps</a></li>",
+                "<li><a target='bayernatlas' href='https://geoportal.bayern.de/bayernatlas/index.html?X=" + lat_detected + "&Y=" + lng_detected + "&zoom=14&lang=de&bgLayer=luftbild&topic=ba&catalogNodes=122'>DE - BayernAtlas</a></li>",
+                "<li><a target='yandex' href='https://maps.yandex.ru/?text=" + lat_detected + "," + lng_detected + "'>RU - Yandex</a></li>",
+                "<li><a target='hitta' href='https://www.hitta.se/kartan!~" + lat_detected + "," + lng_detected + ",18z/tileLayer!l=1'>SE - Hitta.se</a></li>",
+                "<li><a target='eniro' href='https://kartor.eniro.se/?c=" + lat_detected + "," + lng_detected + "&z=17&l=nautical'>SE - Eniro Sjökort</a></li>",
+                "<li><a target='eniro' href='http://opr.pegel.dk/?17/" + lat_detected + "/" + lng_detected + "'>DK - SDFE Orthophotos</a></li>"
+*/
             ];
 
             descDiv.insertAdjacentHTML("beforeEnd", "<div><div class='btn-group'>" + mapButtons.join("") +
@@ -388,7 +498,7 @@ opacity: 1;
             a.className = "button btn btn-default pull-right";
             a.target = 'translate';
             a.style.padding = '0px 4px';
-            a.href = "https://translate.google.com/?hl=de#auto/en/" + content;
+            a.href = "https://translate.google.com/#auto/en/" + content;
             link.insertAdjacentElement("afterend",a);
 
             const description = w.document.querySelector("#descriptionDiv").innerHTML.split("<br>")[3].trim();
@@ -401,7 +511,7 @@ opacity: 1;
                 a.className = "button btn btn-default pull-right";
                 a.target = 'translate';
                 a.style.padding = '0px 4px';
-                a.href = "https://translate.google.com/?hl=de#auto/en/" + description;
+                a.href = "https://translate.google.com/#auto/en/" + description;
                 const br = w.document.querySelectorAll("#descriptionDiv br")[2];
                 br.insertAdjacentElement("afterend",a);
             }
