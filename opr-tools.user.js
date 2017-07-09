@@ -214,7 +214,7 @@ opacity: 1;
              */
             const x_PI = 3.14159265358979324 * 3000.0 / 180.0;
             const PI = 3.1415926535897932384626;
-            const a = 6378245.0;
+            const b = 6378245.0;
             const ee = 0.00669342162296594323;
 
             //GCJ-02 to WGS84
@@ -264,8 +264,8 @@ opacity: 1;
                     var magic = Math.sin(radlat);
                     magic = 1 - ee * magic * magic;
                     var sqrtmagic = Math.sqrt(magic);
-                    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
-                    dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
+                    dlat = (dlat * 180.0) / ((b * (1 - ee)) / (magic * sqrtmagic) * PI);
+                    dlng = (dlng * 180.0) / (b / sqrtmagic * Math.cos(radlat) * PI);
                     var mglat = lat1 + dlat;
                     var mglng = lng1 + dlng;
                     return [mglng, mglat];
@@ -293,8 +293,9 @@ opacity: 1;
                 var lng1 = +lng;
                 if (out_of_china(lng1,lat1)){
                     return [lng1,lat1];
-                } else 
+                } else {
                     return gcj02tobd09(lng,lat);
+                }
             }
 
             var lat_detected = transform_lat(pageData.lng,pageData.lat);
@@ -314,12 +315,12 @@ opacity: 1;
                 return [name, position];
             }
             var portal_info = get_portal_info();
-            var gcj02 = wgs84togcj02(pageData.lng)
+            var gcj02 = wgs84togcj02(pageData.lng);
 
             // adding map buttons
             const mapButtons = [
                 "<a class='button btn btn-default' target='intel' href='https://www.ingress.com/intel?ll=" + pageData.lat + "," + pageData.lng + "&z=17'>Intel</a>",
-                "<a class='button btn btn-default' target='mapqq' href='http://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&name=" + portal_info[0] + "&addr=" + portal_info[1] + "&pointy=" + gcj02[1] + "&pointx=" + gcj02[0]; + "&zoom=16'>Tencent map</a>",
+                "<a class='button btn btn-default' target='mapqq' href='http://map.qq.com/?type=marker&isopeninfowin=1&markertype=1&name=" + portal_info[0] + "&addr=" + portal_info[1] + "&pointy=" + gcj02[1] + "&pointx=" + gcj02[0] + "&zoom=16'>Tencent map</a>",
                 "<a class='button btn btn-default' target='osm' href='https://www.openstreetmap.org/?mlat=" + lat_detected + "&mlon=" + lng_detected + "&zoom=16'>OSM</a>",
                 "<a class='button btn btn-default' target='bing' href='https://bing.com/maps/default.aspx?cp=" + lat_detected + "~" + lng_detected + "&lvl=16&style=a'>bing</a>"
             ];
